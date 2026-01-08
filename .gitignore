@@ -1,0 +1,24 @@
+# Ignore environment and sensitive files
+env.php
+*.log
+logs/*.log
+
+# Ignore uploads (optional - uncomment if you don't want to track uploads)
+# uploads/*
+# !uploads/.htaccess
+
+# Ignore IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Ignore composer dependencies if any
+/vendor/
+composer.lock
+
+# Ignore node modules if any
+/node_modules/
+package-lock.json
