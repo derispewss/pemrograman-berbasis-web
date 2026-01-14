@@ -100,10 +100,14 @@ http://localhost/kuliah/pemrograman-berbasis-web/install.php
 ```
 > **PERINGATAN**: Script ini akan menghapus semua data lama di database yang dikonfigurasi!
 
-### 4. Login Admin
+### 4. Login Admin 2 Users
 Setelah instalasi berhasil, login dengan akun default:
 - **Username**: `admin`
 - **Password**: `admin123`
+
+Login Dosen
+- **Username**: `april`
+- **Password**: `april#1209`
 
 ### 5. Pasca Instalasi (Hosting)
 Untuk keamanan di server production:
