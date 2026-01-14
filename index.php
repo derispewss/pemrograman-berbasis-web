@@ -2,14 +2,18 @@
 require_once 'config.php';
 
 // Fetch all articles
-$stmt = $pdo->query("SELECT * FROM articles ORDER BY created_at DESC");
+$stmt = $pdo->query("SELECT a.*, u.name as author_name FROM articles a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC");
 $articles = $stmt->fetchAll();
+
+// Fetch active gallery items
+$stmt = $pdo->query("SELECT g.*, u.name as author_name FROM gallery g LEFT JOIN users u ON g.user_id = u.id WHERE g.is_active = 1 ORDER BY g.sort_order ASC, g.created_at DESC");
+$galleries = $stmt->fetchAll();
 
 // Helper for image path
 function getImageSrc($image) {
     if (empty($image)) return '';
     if (strpos($image, 'http') === 0) return $image;
-    return $image; // uploads/xxx.jpg - relative from root
+    return $image;
 }
 ?>
 <!DOCTYPE html>
@@ -109,6 +113,9 @@ function getImageSrc($image) {
                                         <?php endif; ?>
                                         <p><?= nl2br(htmlspecialchars($article['content'])) ?></p>
                                         <small class="text-muted"><?= formatDate($article['created_at']) ?></small>
+                                        <div class="mb-2 text-muted small">
+                                            <i class="bi bi-person me-1"></i><?= htmlspecialchars($article['author_name'] ?: 'Admin') ?>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -123,25 +130,63 @@ function getImageSrc($image) {
     <section id="gallery" class="text-center">
         <div class="container">
             <h1 class="fw-bold display-5">Gallery</h1>
-            <div id="carouselGallery" class="carousel slide">
-                <div class="carousel-inner">
-                    <div class="carousel-item active">
-                        <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200" class="d-block w-100" alt="Gallery" />
+            <?php if (empty($galleries)): ?>
+                <!-- Fallback: Static gallery if no data -->
+                <div id="carouselGallery" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        <div class="carousel-item active">
+                            <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200" class="d-block w-100" alt="Gallery" />
+                        </div>
+                        <div class="carousel-item">
+                            <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200" class="d-block w-100" alt="Gallery" />
+                        </div>
+                        <div class="carousel-item">
+                            <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1200" class="d-block w-100" alt="Gallery" />
+                        </div>
                     </div>
-                    <div class="carousel-item">
-                        <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200" class="d-block w-100" alt="Gallery" />
-                    </div>
-                    <div class="carousel-item">
-                        <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1200" class="d-block w-100" alt="Gallery" />
-                    </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselGallery" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon"></span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#carouselGallery" data-bs-slide="next">
+                        <span class="carousel-control-next-icon"></span>
+                    </button>
                 </div>
-                <button class="carousel-control-prev" type="button" data-bs-target="#carouselGallery" data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon"></span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#carouselGallery" data-bs-slide="next">
-                    <span class="carousel-control-next-icon"></span>
-                </button>
-            </div>
+            <?php else: ?>
+                <!-- Dynamic gallery from database -->
+                <div id="carouselGallery" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        <?php foreach ($galleries as $index => $gallery): ?>
+                            <?php $imgSrc = getImageSrc($gallery['image']); ?>
+                            <div class="carousel-item <?= $index === 0 ? 'active' : '' ?>">
+                                <img src="<?= htmlspecialchars($imgSrc) ?>" class="d-block w-100" alt="<?= htmlspecialchars($gallery['title']) ?>" onerror="this.src='https://via.placeholder.com/1200x675?text=No+Image'" />
+                                <?php if (!empty($gallery['title']) || !empty($gallery['description'])): ?>
+                                    <div class="carousel-caption d-none d-md-block">
+                                        <?php if (!empty($gallery['title'])): ?>
+                                            <h5><?= htmlspecialchars($gallery['title']) ?></h5>
+                                        <?php endif; ?>
+                                        <?php if (!empty($gallery['description']) || !empty($gallery['author_name'])): ?>
+                                            <p>
+                                                <?= htmlspecialchars($gallery['description'] ?? '') ?>
+                                                <?php if (!empty($gallery['author_name'])): ?>
+                                                    <br><small class="opacity-75">by <?= htmlspecialchars($gallery['author_name']) ?></small>
+                                                <?php endif; ?>
+                                            </p>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if (count($galleries) > 1): ?>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#carouselGallery" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#carouselGallery" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </section>
 

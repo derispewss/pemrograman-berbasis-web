@@ -1,5 +1,5 @@
 <?php
-require_once '../config.php';
+require_once '../../config.php';
 requireLogin();
 
 // API endpoint for AJAX
@@ -7,7 +7,7 @@ if (isset($_GET['action'])) {
     header('Content-Type: application/json');
     
     if ($_GET['action'] === 'list') {
-        $stmt = $pdo->query("SELECT * FROM articles ORDER BY created_at DESC");
+        $stmt = $pdo->query("SELECT a.*, u.name as author_name FROM articles a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC");
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
         exit;
     }
@@ -20,7 +20,7 @@ if (isset($_GET['action'])) {
         
         if ($article) {
             if ($article['image'] && strpos($article['image'], 'uploads/') === 0) {
-                $path = '../' . $article['image'];
+                $path = '../../' . $article['image'];
                 if (file_exists($path)) unlink($path);
             }
             $pdo->prepare("DELETE FROM articles WHERE id = ?")->execute([$id]);
@@ -32,11 +32,10 @@ if (isset($_GET['action'])) {
     }
 }
 
-// Helper function for image path
 function getImageUrl($image) {
     if (empty($image)) return '';
     if (strpos($image, 'http') === 0) return $image;
-    return '../' . $image;
+    return '../../' . $image;
 }
 ?>
 <!DOCTYPE html>
@@ -44,40 +43,35 @@ function getImageUrl($image) {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Dashboard - Admin</title>
+    <title>Article Management - Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/admin.css" />
+    <link rel="stylesheet" href="../assets/css/admin.css" />
 </head>
 <body>
     <?php 
-    $currentPage = 'dashboard';
-    $baseUrl = '';
-    $rootUrl = '../index.php';
-    include 'includes/sidebar.php';
+    $currentPage = 'articles';
+    $baseUrl = '../';
+    $rootUrl = '../../index.php';
+    include '../includes/sidebar.php';
     ?>
 
+    <!-- Main Content -->
     <div class="main-content">
         <header class="content-header">
-            <h1><i class="bi bi-grid me-2"></i>Dashboard</h1>
-            <a href="articles/create.php" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Tambah Artikel</a>
+            <h1><i class="bi bi-newspaper me-2"></i>Article Management</h1>
+            <a href="create.php" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Tambah Artikel</a>
         </header>
 
         <div class="row g-4 mb-4">
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="stats-card">
                     <div class="stats-icon bg-primary"><i class="bi bi-newspaper"></i></div>
                     <div class="stats-info"><h3 id="totalArticles">-</h3><p>Total Artikel</p></div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="stats-card">
-                    <div class="stats-icon bg-info"><i class="bi bi-images"></i></div>
-                    <div class="stats-info"><h3 id="totalGallery">-</h3><p>Total Gallery</p></div>
-                </div>
-            </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="stats-card">
                     <div class="stats-icon bg-success"><i class="bi bi-calendar3"></i></div>
                     <div class="stats-info"><h3><?= date('d M Y') ?></h3><p>Hari Ini</p></div>
@@ -88,29 +82,13 @@ function getImageUrl($image) {
         <div id="alertContainer"></div>
 
         <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Daftar Artikel</h5>
+                <button class="btn btn-sm btn-outline-secondary" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i></button>
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <a href="articles/create.php" class="btn btn-outline-primary w-100 py-3">
-                            <i class="bi bi-plus-circle d-block mb-2" style="font-size: 2rem;"></i>
-                            <strong>Tambah Artikel</strong>
-                        </a>
-                    </div>
-                    <div class="col-md-4">
-                        <a href="gallery/create.php" class="btn btn-outline-info w-100 py-3">
-                            <i class="bi bi-image d-block mb-2" style="font-size: 2rem;"></i>
-                            <strong>Tambah Gallery</strong>
-                        </a>
-                    </div>
-                    <div class="col-md-4">
-                        <a href="articles/index.php" class="btn btn-outline-secondary w-100 py-3">
-                            <i class="bi bi-list-ul d-block mb-2" style="font-size: 2rem;"></i>
-                            <strong>Lihat Semua Artikel</strong>
-                        </a>
-                    </div>
+                <div id="articlesContainer">
+                    <div class="loading"><div class="spinner-border text-secondary" role="status"></div><p class="mt-2 text-muted">Memuat data...</p></div>
                 </div>
             </div>
         </div>
@@ -137,56 +115,6 @@ function getImageUrl($image) {
         let deleteId = null;
         const deleteModal = new bootstrap.Modal($('#deleteModal')[0]);
         
-        // Mobile toggle
-        $('#mobileToggle, #sidebarOverlay').click(function() {
-            $('#sidebar, #sidebarOverlay').toggleClass('active');
-        });
-        
-        // Desktop collapse toggle with localStorage
-        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-        if (sidebarCollapsed) {
-            $('#sidebar').addClass('collapsed');
-            $('.main-content').addClass('expanded');
-        }
-        
-        $('#desktopCollapseToggle').click(function() {
-            $('#sidebar').toggleClass('collapsed');
-            $('.main-content').toggleClass('expanded');
-            
-            // Save state to localStorage
-            const isCollapsed = $('#sidebar').hasClass('collapsed');
-            localStorage.setItem('sidebarCollapsed', isCollapsed);
-        });
-        
-        // Load gallery count
-        function loadGalleryCount() {
-            $.ajax({
-                url: 'gallery/index.php?action=list',
-                method: 'GET',
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        $('#totalGallery').text(response.data.length);
-                    }
-                }
-            });
-        }
-        
-        // Load articles count
-        function loadArticlesCount() {
-            $.ajax({
-                url: 'articles/index.php?action=list',
-                method: 'GET',
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        $('#totalArticles').text(response.data.length);
-                    }
-                }
-            });
-        }
-        
-        // Load articles
         function loadArticles() {
             $('#articlesContainer').html('<div class="loading"><div class="spinner-border text-secondary"></div><p class="mt-2 text-muted">Memuat data...</p></div>');
             
@@ -206,24 +134,16 @@ function getImageUrl($image) {
             });
         }
         
-        // Render articles table
         function renderArticles(articles) {
             if (articles.length === 0) {
-                $('#articlesContainer').html('<div class="text-center py-4"><i class="bi bi-inbox display-4 text-muted"></i><p class="mt-2 text-muted">Belum ada artikel.</p><a href="articles/create.php" class="btn btn-primary btn-sm">Tambah Artikel</a></div>');
+                $('#articlesContainer').html('<div class="text-center py-4"><i class="bi bi-inbox display-4 text-muted"></i><p class="mt-2 text-muted">Belum ada artikel.</p><a href="create.php" class="btn btn-primary btn-sm">Tambah Artikel</a></div>');
                 return;
             }
             
-            let html = '<div class="table-responsive fade-in"><table class="table table-hover align-middle"><thead><tr><th>#</th><th>Gambar</th><th>Judul</th><th>Konten</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>';
+            let html = '<div class="table-responsive fade-in"><table class="table table-hover align-middle"><thead><tr><th>#</th><th>Gambar</th><th>Judul</th><th>Penulis</th><th>Konten</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>';
             
             articles.forEach(function(a, i) {
-                let imgSrc = '';
-                if (a.image) {
-                    if (a.image.indexOf('http') === 0) {
-                        imgSrc = a.image;
-                    } else {
-                        imgSrc = '../' + a.image;
-                    }
-                }
+                let imgSrc = a.image ? (a.image.indexOf('http') === 0 ? a.image : '../../' + a.image) : '';
                 
                 html += '<tr>';
                 html += '<td>' + (i + 1) + '</td>';
@@ -235,6 +155,7 @@ function getImageUrl($image) {
                 }
                 html += '</td>';
                 html += '<td><strong>' + escapeHtml(a.title) + '</strong></td>';
+                html += '<td><span class="badge bg-light text-dark border"><i class="bi bi-person me-1"></i>' + escapeHtml(a.author_name || 'Admin') + '</span></td>';
                 html += '<td><small class="text-muted">' + escapeHtml(truncate(a.content, 50)) + '</small></td>';
                 html += '<td><small>' + formatDate(a.created_at) + '</small></td>';
                 html += '<td>';
@@ -248,14 +169,12 @@ function getImageUrl($image) {
             $('#articlesContainer').html(html);
         }
         
-        // Delete button click
         $(document).on('click', '.btn-delete', function() {
             deleteId = $(this).data('id');
             $('#deleteTitle').text($(this).data('title'));
             deleteModal.show();
         });
         
-        // Confirm delete
         $('#confirmDelete').click(function() {
             if (!deleteId) return;
             
@@ -285,19 +204,16 @@ function getImageUrl($image) {
             });
         });
         
-        // Refresh button
         $('#refreshBtn').click(function() {
             loadArticles();
         });
         
-        // Show alert
         function showAlert(type, message) {
             const alert = $('<div class="alert alert-' + type + ' alert-dismissible fade show"><i class="bi bi-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + ' me-2"></i>' + message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
             $('#alertContainer').html(alert);
             setTimeout(() => alert.alert('close'), 3000);
         }
         
-        // Helper functions
         function escapeHtml(text) {
             if (!text) return '';
             return $('<div>').text(text).html();
@@ -315,14 +231,11 @@ function getImageUrl($image) {
             return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
         }
         
-        // Check URL params for messages
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('created')) showAlert('success', 'Artikel berhasil ditambahkan!');
         if (urlParams.has('updated')) showAlert('success', 'Artikel berhasil diperbarui!');
         
-        // Initial load
-        loadArticlesCount();
-        loadGalleryCount();
+        loadArticles();
     });
     </script>
 </body>

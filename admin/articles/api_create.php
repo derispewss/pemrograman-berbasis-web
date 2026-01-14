@@ -1,5 +1,5 @@
 <?php
-require_once '../config.php';
+require_once '../../config.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -31,7 +31,7 @@ if (empty($content)) {
 
 // Handle file upload
 if (!empty($_FILES['image_file']['name'])) {
-    $uploadDir = '../uploads/';
+    $uploadDir = '../../uploads/articles/';
     if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
     
     $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -50,7 +50,7 @@ if (!empty($_FILES['image_file']['name'])) {
     
     $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $_FILES['image_file']['name']);
     if (move_uploaded_file($_FILES['image_file']['tmp_name'], $uploadDir . $fileName)) {
-        $image = 'uploads/' . $fileName;
+        $image = 'uploads/articles/' . $fileName;
     } else {
         $response['message'] = 'Gagal mengupload file';
         echo json_encode($response);
@@ -59,8 +59,9 @@ if (!empty($_FILES['image_file']['name'])) {
 }
 
 try {
-    $stmt = $pdo->prepare("INSERT INTO articles (title, content, image) VALUES (?, ?, ?)");
-    $stmt->execute([$title, $content, $image]);
+    $userId = $_SESSION['user_id'];
+    $stmt = $pdo->prepare("INSERT INTO articles (user_id, title, content, image) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$userId, $title, $content, $image]);
     
     $response['success'] = true;
     $response['message'] = 'Artikel berhasil ditambahkan';

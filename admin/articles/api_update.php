@@ -1,5 +1,5 @@
 <?php
-require_once '../config.php';
+require_once '../../config.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -54,7 +54,7 @@ if (empty($image)) {
 
 // Handle file upload
 if (!empty($_FILES['image_file']['name'])) {
-    $uploadDir = '../uploads/';
+    $uploadDir = '../../uploads/articles/';
     if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
     
     $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -75,10 +75,10 @@ if (!empty($_FILES['image_file']['name'])) {
     if (move_uploaded_file($_FILES['image_file']['tmp_name'], $uploadDir . $fileName)) {
         // Delete old uploaded image
         if ($article['image'] && strpos($article['image'], 'uploads/') === 0) {
-            $oldPath = '../' . $article['image'];
+            $oldPath = '../../' . $article['image'];
             if (file_exists($oldPath)) unlink($oldPath);
         }
-        $image = 'uploads/' . $fileName;
+        $image = 'uploads/articles/' . $fileName;
     } else {
         $response['message'] = 'Gagal mengupload file';
         echo json_encode($response);
